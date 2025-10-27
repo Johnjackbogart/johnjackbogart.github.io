@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>John Bogart — Fluid Lander</title>
+    <meta
+      name="description"
+      content="A fluid-sim hero lander that auto-loads my latest GitHub repos."
+    />
+
+    <style>
+      /* --- Base / Reset --- */
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          "Apple Color Emoji",
+          "Segoe UI Emoji";
+        color: #e7e7ea;
+        background: #0b0b10;
+        overflow: hidden; /* canvas fills page */
+      }
+
+      /* --- Fluid canvas backdrop --- */
+      #fluid {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        display: block;
+        z-index: 0;
+      }
+
+      /* --- Content overlay --- */
+      .wrap {
+        position: relative;
+        z-index: 1;
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 5vmin;
+      }
+      .card {
+        width: min(960px, 94vw);
+        background: rgba(10, 10, 14, 0.55);
+        backdrop-filter: blur(10px) saturate(130%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: clamp(20px, 4vmin, 48px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      header h1 {
+        margin: 0 0 6px 0;
+        font-size: clamp(28px, 5vw, 56px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+      .subtitle {
+        margin: 0 0 22px 0;
+        opacity: 0.85;
+        font-size: clamp(14px, 2.2vw, 18px);
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 22px 0 10px;
+      }
+      .btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        text-decoration: none;
+        color: #f4f4f7;
+        background: rgba(255, 255, 255, 0.05);
+        transition:
+          transform 160ms ease,
+          background 160ms ease,
+          border-color 160ms ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.09);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn.primary {
+        background: rgba(149, 114, 252, 0.18);
+        border-color: rgba(149, 114, 252, 0.5);
+      }
+
+      .grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        margin-top: 22px;
+      }
+      .tile {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        padding: 16px;
+        text-decoration: none;
+        color: inherit;
+        transition:
+          transform 160ms ease,
+          background 160ms ease,
+          border-color 160ms ease;
+      }
+      .tile:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+      .tile .muted {
+        opacity: 0.8;
+        font-size: 14px;
+      }
+
+      .foot {
+        margin-top: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        opacity: 0.8;
+        font-size: 14px;
+      }
+
+      /* --- Tiny control panel --- */
+      .controls {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        z-index: 2;
+        background: rgba(16, 16, 22, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 12px;
+        border-radius: 14px;
+        width: min(320px, 92vw);
+        font-size: 14px;
+        color: #dcdce0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+      .controls details[open] {
+        background: rgba(16, 16, 22, 0.82);
+      }
+      .controls summary {
+        cursor: pointer;
+        outline: none;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .row input[type="range"] {
+        width: 160px;
+      }
+      .row input[type="checkbox"] {
+        transform: translateY(1px);
+      }
+      .row label {
+        opacity: 0.9;
+      }
+      .controls .apply {
+        margin-top: 10px;
+        width: 100%;
+      }
+
+      @supports (padding: max(0px)) {
+        .wrap {
+          padding: max(5vmin, env(safe-area-inset-top))
+            max(5vmin, env(safe-area-inset-right))
+            max(5vmin, env(safe-area-inset-bottom))
+            max(5vmin, env(safe-area-inset-left));
+        }
+      }
+    </style>
+
+    <!-- Import map for webgl-fluid (ESM wrapper) -->
+    <script type="importmap">
+      {
+        "imports": {
+          "webgl-fluid": "https://cdn.jsdelivr.net/npm/webgl-fluid@0.3/dist/webgl-fluid.mjs"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <canvas id="fluid" aria-hidden="true"></canvas>
+
+    <div class="wrap">
+      <main class="card" role="main">
+        <header>
+          <h1>John Bogart</h1>
+          <p class="subtitle">
+            Cleveland, OH · Love Front End and Design! Working on Backend and AI
+            skillset · Loves to run and make music!
+          </p>
+          <p class="subtitle">Checkout what I'm working on below</p>
+          <div class="links">
+            <a
+              class="btn primary"
+              href="https://johnjackbogart.com"
+              rel="noopener"
+              >Portfolio</a
+            >
+            <a class="btn" href="mailto:johnjackbogart@gmail.com">Email</a>
+            <a
+              class="btn"
+              href="https://johnjackbogart.com/resume"
+              rel="noopener"
+              >Resume</a
+            >
+            <a
+              class="btn"
+              href="https://github.com/johnjackbogart"
+              rel="noopener"
+              >GitHub</a
+            >
+          </div>
+        </header>
+
+        <section aria-label="Latest repositories">
+          <h2 style="margin: 18px 0 8px; font-size: 18px; opacity: 0.9">
+            Latest on GitHub
+          </h2>
+          <div id="repo-grid" class="grid" role="list"></div>
+        </section>
+
+        <div class="foot">
+          <div>© <span id="year"></span> John Bogart</div>
+          <div class="muted">Fluid background powered by WebGL Fluid.</div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <details>
+        <summary>🎛️ Fluid settings</summary>
+        <div class="row">
+          <label for="simRes">SIM_RESOLUTION</label
+          ><input
+            id="simRes"
+            type="range"
+            min="64"
+            max="256"
+            step="64"
+            value="128"
+          />
+        </div>
+        <div class="row">
+          <label for="dyeRes">DYE_RESOLUTION</label
+          ><input
+            id="dyeRes"
+            type="range"
+            min="512"
+            max="2048"
+            step="256"
+            value="1024"
+          />
+        </div>
+        <div class="row">
+          <label for="curl">CURL</label
+          ><input id="curl" type="range" min="0" max="60" step="2" value="18" />
+        </div>
+        <div class="row">
+          <label for="radius">SPLAT_RADIUS</label
+          ><input
+            id="radius"
+            type="range"
+            min="0.05"
+            max="0.6"
+            step="0.01"
+            value="0.28"
+          />
+        </div>
+        <div class="row">
+          <label for="force">SPLAT_FORCE</label
+          ><input
+            id="force"
+            type="range"
+            min="500"
+            max="12000"
+            step="100"
+            value="6000"
+          />
+        </div>
+        <div class="row">
+          <label for="auto">AUTO splats</label
+          ><input id="auto" type="checkbox" checked />
+        </div>
+        <button class="btn apply" id="apply">Apply</button>
+      </details>
+    </div>
+
+    <script type="module">
+      import WebGLFluid from "webgl-fluid";
+
+      const canvas = document.getElementById("fluid");
+      let fluidStopper = null; // optional cancel function if wrapper returns it later
+      let currentOpts = null;
+
+      const baseOpts = {
+        TRANSPARENT: true,
+        TRIGGER: "hover",
+        IMMEDIATE: true,
+        AUTO: true,
+        INTERVAL: 2600,
+        SIM_RESOLUTION: 128,
+        DYE_RESOLUTION: 1024,
+        DENSITY_DISSIPATION: 1.05,
+        VELOCITY_DISSIPATION: 0.4,
+        PRESSURE: 0.8,
+        PRESSURE_ITERATIONS: 18,
+        CURL: 18,
+        SPLAT_RADIUS: 0.28,
+        SPLAT_FORCE: 6000,
+        COLORFUL: true,
+        COLOR_UPDATE_SPEED: 8,
+        PAUSED: false,
+      };
+
+      const resize = () => {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const { innerWidth: w, innerHeight: h } = window;
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+      };
+      resize();
+      addEventListener("resize", resize, { passive: true });
+
+      function startFluid(opts = baseOpts) {
+        currentOpts = { ...opts };
+        // If the lib ever exposes a stop() we could call it here.
+        WebGLFluid(canvas, currentOpts);
+      }
+
+      startFluid(baseOpts);
+
+      // Footer year
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      // --- GitHub repos: top 6 by recent activity (pushed_at), excluding forks ---
+      async function loadRepos() {
+        const grid = document.getElementById("repo-grid");
+        grid.innerHTML = '<div class="tile">Loading…</div>';
+        try {
+          const res = await fetch(
+            "https://api.github.com/users/johnjackbogart/repos?per_page=100",
+            { headers: { Accept: "application/vnd.github+json" } },
+          );
+          if (!res.ok) throw new Error("GitHub API error: " + res.status);
+          const repos = await res.json();
+          const sorted = repos
+            .filter((r) => !r.fork)
+            .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))
+            .slice(0, 6);
+
+          if (!sorted.length) {
+            grid.innerHTML = '<div class="tile">No repositories found.</div>';
+            return;
+          }
+
+          grid.innerHTML = "";
+          for (const r of sorted) {
+            const a = document.createElement("a");
+            a.className = "tile";
+            a.href = r.html_url;
+            a.rel = "noopener";
+            a.role = "listitem";
+            a.innerHTML = `<strong>${r.name}</strong><br/><span class="muted">${(r.description || "").replace(/</g, "&lt;")}</span>`;
+            grid.appendChild(a);
+          }
+        } catch (err) {
+          grid.innerHTML = `<div class="tile">Failed to load repos. <span class="muted">${String(err).slice(0, 120)}</span></div>`;
+        }
+      }
+      loadRepos();
+
+      // --- Controls: restart with new options ---
+      const $ = (id) => document.getElementById(id);
+      const controls = {
+        simRes: $("simRes"),
+        dyeRes: $("dyeRes"),
+        curl: $("curl"),
+        radius: $("radius"),
+        force: $("force"),
+        auto: $("auto"),
+        apply: $("apply"),
+      };
+
+      controls.apply.addEventListener("click", () => {
+        const next = {
+          ...baseOpts,
+          SIM_RESOLUTION: Number(controls.simRes.value),
+          DYE_RESOLUTION: Number(controls.dyeRes.value),
+          CURL: Number(controls.curl.value),
+          SPLAT_RADIUS: Number(controls.radius.value),
+          SPLAT_FORCE: Number(controls.force.value),
+          AUTO: controls.auto.checked,
+        };
+        startFluid(next);
+      });
+    </script>
+  </body>
+</html>
+
