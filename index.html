@@ -10,6 +10,10 @@
       href="https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@latest/100.css"
     />
     <style>
+      :root {
+        --collapsed-height: 24px;
+        --collapsed-width: 360px;
+      }
       html,
       body {
         margin: 0;
@@ -41,18 +45,31 @@
         pointer-events: none; /* let canvas interactions through except on card */
       }
       .card {
+        position: relative;
         pointer-events: auto;
         width: min(900px, 92vw);
+        box-sizing: border-box;
         background: rgba(18, 18, 18, 0.7);
         border: 1px solid #2a2a2a;
         border-radius: 16px;
         backdrop-filter: blur(8px);
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-        padding: 28px 28px 20px;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        margin: 0;
+        padding: 16px;
       }
-      header h1 {
+      header h1,
+      .fluid-panel-header h1 {
         margin: 0 0 6px;
         font-size: clamp(28px, 6vw, 44px);
+        line-height: 1.1;
+        color: #f2f2f2;
+        font-weight: 100;
+      }
+      .collapsed-title {
+        display: none;
+        font-size: 14px;
         line-height: 1.1;
         color: #f2f2f2;
         font-weight: 100;
@@ -142,6 +159,8 @@
       }
       .foot {
         display: flex;
+        flex-direction: row;
+        align-items: center;
         justify-content: space-between;
         gap: 12px;
         margin-top: 16px;
@@ -149,22 +168,115 @@
         border-top: 1px solid #2a2a2a;
         font-size: 12px;
         color: #a8a8a8;
+        text-align: left;
+      }
+      .foot-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
       }
       .muted {
         opacity: 0.75;
       }
-      .panel {
+      .control-stack {
         position: fixed;
         right: 12px;
         top: 12px;
-        z-index: 10;
-        background: rgba(24, 24, 24, 0.75);
-        backdrop-filter: blur(6px);
+        z-index: 12;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        padding-bottom: 4px;
+        box-sizing: border-box;
+      }
+      .panel {
+        position: relative;
+        background: rgba(18, 18, 18, 0.7);
+        backdrop-filter: blur(8px);
         border: 1px solid #2a2a2a;
         border-radius: 12px;
-        padding: 12px 12px 8px;
-        width: 320px;
+        padding: 12px 12px 10px;
+        width: var(--collapsed-width);
+        max-width: var(--collapsed-width);
+        box-sizing: border-box;
+        max-height: calc(100vh - 24px);
+        overflow: hidden;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        transition:
+          transform 0.25s ease,
+          opacity 0.2s ease;
+      }
+      .panel.collapsed {
+        padding: 0;
+        min-height: var(--collapsed-height);
+        width: var(--collapsed-width);
+        max-width: var(--collapsed-width);
+        background: rgba(18, 18, 18, 0.7);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+      .fluid-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        position: sticky;
+        top: 0;
+        padding: 10px 12px;
+        background: transparent;
+        backdrop-filter: blur(6px);
+        z-index: 1;
+      }
+      .hero-panel-header {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+      }
+      .panel.collapsed .fluid-panel-header {
+        position: static;
+        padding: 10px 12px;
+        min-height: var(--collapsed-height);
+        align-items: center;
+      }
+      .panel-body {
+        overflow-y: auto;
+        max-height: calc(100vh - 120px);
+        padding-right: 4px;
+      }
+      .fluid-panel-header .title {
+        margin: 0;
+      }
+      .panel.collapsed .panel-body {
+        display: none;
+      }
+      .panel.collapsed .fluid-panel-header div {
+        display: none;
+      }
+      .panel.collapsed .collapsed-title {
+        display: inline;
+      }
+      .panel-toggle {
+        background: #1c1c1c;
+        color: #ddd;
+        border: 1px solid #2a2a2a;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        white-space: nowrap;
+      }
+      .panel-toggle:hover {
+        background: #2a2a2a;
+      }
+      .controls-panel {
+        width: 360px;
+        order: 1;
       }
       .row {
         display: grid;
@@ -179,6 +291,53 @@
       }
       .row input[type="range"] {
         width: 100%;
+        -webkit-appearance: none;
+        appearance: none;
+        accent-color: #58d89d;
+        height: 4px;
+        border-radius: 999px;
+        background: transparent;
+        --range-percent: 50%;
+      }
+      .row input[type="range"]::-webkit-slider-runnable-track {
+        height: 4px;
+        border-radius: 999px;
+        background: linear-gradient(
+          to right,
+          #58d89d 0%,
+          #58d89d var(--range-percent),
+          #1f1f1f var(--range-percent),
+          #1f1f1f 100%
+        );
+      }
+      .row input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #58d89d;
+        border: 2px solid #0f3c28;
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+        margin-top: -5px;
+      }
+      .row input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #58d89d;
+        border: 2px solid #0f3c28;
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+      }
+      .row input[type="range"]::-moz-range-progress {
+        background: #58d89d;
+        height: 4px;
+        border-radius: 999px;
+      }
+      .row input[type="range"]::-moz-range-track {
+        background: #222;
+        height: 4px;
+        border-radius: 999px;
       }
       .row input[type="checkbox"] {
         transform: translateY(1px);
@@ -192,7 +351,7 @@
           Consolas,
           monospace;
         text-align: right;
-        color: #253D2C;
+        color: #253d2c;
       }
       .title {
         font-weight: 100;
@@ -223,7 +382,7 @@
         background: #2a2a2a;
       }
       a {
-        color: #253D2C;
+        color: #58d89d;
         text-decoration: none;
       }
       .hero-logo {
@@ -233,10 +392,38 @@
         width: 80px;
         height: 80px;
         opacity: 0.9;
+        pointer-events: none;
       }
       .hero-logo svg {
         width: 100%;
         height: 100%;
+      }
+      .hero-toggle-inline {
+        margin-left: auto;
+        margin-right: 2px;
+        margin-bottom: 2px;
+        align-self: center;
+        flex-shrink: 0;
+      }
+      .card.collapsed {
+        display: none;
+      }
+      .hero-placeholder {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: rgba(20, 20, 20, 0.8);
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        color: #eee;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        width: var(--collapsed-width);
+        max-width: 96vw;
+        min-height: var(--collapsed-height);
+        justify-content: space-between;
+        align-self: flex-end;
+        order: 2;
       }
       /* Hidden SVG loader: used only to read path geometry */
       .logo-wrap {
@@ -247,6 +434,115 @@
         height: 0;
         opacity: 0;
         pointer-events: none;
+      }
+      @media (max-width: 900px) {
+        :root {
+          --collapsed-width: 300px;
+        }
+        .panel {
+          width: var(--collapsed-width);
+        }
+      }
+      @media (max-width: 768px) {
+        :root {
+          --collapsed-width: min(920px, 100%);
+        }
+        .wrap {
+          align-items: flex-start;
+          padding: 16px;
+          pointer-events: auto;
+          justify-items: center;
+        }
+        .card {
+          width: min(900px, 100%);
+          padding: 22px 18px 2px;
+          max-height: none;
+          overflow: visible;
+        }
+        .hero-logo {
+          width: 64px;
+          height: 64px;
+          top: 12px;
+          right: 12px;
+        }
+        .control-stack {
+          position: sticky;
+          bottom: 12px;
+          top: auto;
+          z-index: 20;
+          flex-direction: column;
+          gap: 12px;
+          align-items: stretch;
+          width: min(900px, 100%);
+          margin: 0 auto;
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
+          padding: 0 8px 20px;
+        }
+        .control-stack.stacked-below {
+          position: static;
+          max-height: none;
+          padding: 16px;
+        }
+        .control-stack.stacked-below .panel,
+        .control-stack.stacked-below .panel-body {
+          max-height: none;
+        }
+        .wrap {
+          position: static;
+          inset: auto;
+          min-height: 100vh;
+          pointer-events: auto;
+        }
+        .card {
+          pointer-events: auto;
+        }
+        html,
+        body {
+          overflow-y: auto;
+        }
+        .controls-panel {
+          order: 1;
+        }
+        .panel {
+          width: var(--collapsed-width);
+          max-width: 100%;
+          max-height: 70vh;
+        }
+        .panel.collapsed {
+          width: var(--collapsed-width);
+          height: auto;
+        }
+        .panel-body {
+          max-height: calc(70vh - 60px);
+        }
+        .panel-toggle {
+          align-self: flex-start;
+        }
+        .hero-placeholder {
+          order: 0;
+          width: 100%;
+          height: auto;
+          align-self: stretch;
+          position: sticky;
+          bottom: 12px;
+          z-index: 20;
+          margin: 8px 0 0;
+          justify-content: space-between;
+        }
+        .foot {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+          text-align: left;
+          gap: 12px;
+        }
+        .foot-text {
+          align-items: flex-start;
+        }
+        .hero-toggle-inline {
+          margin-left: auto;
+        }
       }
     </style>
   </head>
@@ -317,10 +613,23 @@
     </script>
     <!-- Hero overlay -->
     <div class="wrap">
-      <main class="card" role="main">
+      <main class="card" role="main" id="hero-card">
         <div class="hero-logo">
-          <svg height="1200" version="1.2" width="1200" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
-            <path d="m 578,0 c -21.31455,21.024569 -13.32925,56.244419 -17,84 0.41369,56.80665 -2.96009,113.23827 -3,170 -3.68763,31.52504 -0.63624,65.02915 -11,95 -42.90833,53.16859 -72.51575,116.08022 -121,165 -51.28462,63.96285 -105.52766,126.06015 -171,176 -23.26607,24.33517 -69.64469,51.46586 -92,11 -32.94463,-56.26605 -5.04619,-121.30899 19,-175 36.13343,-77.1439 97.60239,-139.08208 164,-191 33.46232,-20.90529 62.80982,-49.18889 100,-63 38.33285,-40.16006 -28.69205,-53.56667 -52,-24 C 337.1254,274.54511 288.40655,314.29019 245.9097,360.0903 193.98472,409.35293 158.99913,473.36973 126,536 c -23.68234,51.0831 -38.278409,109.16373 -25,165 6.20902,31.5793 20.41777,77.14649 57,81 34.87453,2.0321 62.31586,-26.82387 95,-36 73.49261,-39.45795 123.827,-107.50943 176,-170 31.58189,-33.00846 52.87174,-74.45173 83,-109 17.20789,-23.67392 46.62799,-73.71011 39,-17 -2.08315,64.92575 0.14937,130.27884 -4,195 7.83884,40.98653 -4.67478,84.53551 -33,115 -8.50942,-38.01604 -80.29723,-44.15504 -61,2 49.47806,16.43324 10.36223,62.64946 -9,88 -30.52509,33.52824 -63.29449,66.31028 -101,92 -35.93406,28.4603 -64.45918,-15.78794 -47,-49 11.97091,-42.51603 29.40477,-86.6883 68,-112 13.43599,-35.44382 70.70997,-40.61644 68,-81 -10.23484,-48.61147 -62.06458,-17.06343 -84,4 -39.81211,37.89947 -90.4634,72.99792 -101,131 -13.38133,43.04344 -26.09698,90.01663 -17,135 25.66915,31.6835 71.88628,34.7748 109.89228,37 48.69115,-4.1643 93.02986,-38.43145 114.10772,-82 14.69713,-17.97786 50.5917,-97.21765 56,-40 17.01909,62.37526 40.8243,122.9152 58,185 6.56667,43.0256 -2.14472,99.6467 40,127 41.95183,10.6653 43.57466,-50.1833 25,-74 -14.04315,-57.5603 -22.79349,-116.4513 -30,-175 -4.92545,-71.443 -4.16157,-143.44936 -8,-215 13.02947,-49.93776 53.50659,-86.36828 79,-130 23.84982,-37.0107 52.15479,-71.32404 81,-104 23.48648,6.45712 43.81655,18.3469 64,1 46.30479,7.94834 73.6272,-45.14271 79,-84 4.54649,-30.98698 -11.74027,-71.52325 -49,-67 -46.10756,5.59941 -67.69655,52.66847 -98,82 -36.97437,42.50321 -62.75542,93.1968 -101,135 -24.08294,21.96857 -37.7739,77.68482 -58,85 -4.81082,-81.45419 2.82692,-163.33599 -1,-245 -1.85545,-36.28596 6.59938,-75.88422 38,-98 31.44953,-25.45378 29.84739,-70.62109 63,-95 42.99115,-40.01994 70.08666,-97.08667 122,-127 21.48616,26.69754 -0.95556,63.99008 -5,94 -4.81952,31.29419 -20.52416,62.84943 -16,95 30.33458,31.64805 52.91948,-32.57676 57,-58 10.05936,-49.11337 26.15225,-99.53832 19,-150 -7.06645,-39.637847 -54.84063,-46.871808 -84,-27 -72.63702,38.519131 -102.19853,120.88884 -157,178 -16.54665,24.55799 -29.65686,41.53252 -28,1 -1.20786,-56.9513 4.38375,-113.22932 5,-170 9.98298,-19.739114 2.31075,-54.7000908 -26,-49" fill="#ffffff" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="20" />
+          <svg
+            height="1200"
+            version="1.2"
+            width="1200"
+            viewBox="0 0 1200 1200"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m 578,0 c -21.31455,21.024569 -13.32925,56.244419 -17,84 0.41369,56.80665 -2.96009,113.23827 -3,170 -3.68763,31.52504 -0.63624,65.02915 -11,95 -42.90833,53.16859 -72.51575,116.08022 -121,165 -51.28462,63.96285 -105.52766,126.06015 -171,176 -23.26607,24.33517 -69.64469,51.46586 -92,11 -32.94463,-56.26605 -5.04619,-121.30899 19,-175 36.13343,-77.1439 97.60239,-139.08208 164,-191 33.46232,-20.90529 62.80982,-49.18889 100,-63 38.33285,-40.16006 -28.69205,-53.56667 -52,-24 C 337.1254,274.54511 288.40655,314.29019 245.9097,360.0903 193.98472,409.35293 158.99913,473.36973 126,536 c -23.68234,51.0831 -38.278409,109.16373 -25,165 6.20902,31.5793 20.41777,77.14649 57,81 34.87453,2.0321 62.31586,-26.82387 95,-36 73.49261,-39.45795 123.827,-107.50943 176,-170 31.58189,-33.00846 52.87174,-74.45173 83,-109 17.20789,-23.67392 46.62799,-73.71011 39,-17 -2.08315,64.92575 0.14937,130.27884 -4,195 7.83884,40.98653 -4.67478,84.53551 -33,115 -8.50942,-38.01604 -80.29723,-44.15504 -61,2 49.47806,16.43324 10.36223,62.64946 -9,88 -30.52509,33.52824 -63.29449,66.31028 -101,92 -35.93406,28.4603 -64.45918,-15.78794 -47,-49 11.97091,-42.51603 29.40477,-86.6883 68,-112 13.43599,-35.44382 70.70997,-40.61644 68,-81 -10.23484,-48.61147 -62.06458,-17.06343 -84,4 -39.81211,37.89947 -90.4634,72.99792 -101,131 -13.38133,43.04344 -26.09698,90.01663 -17,135 25.66915,31.6835 71.88628,34.7748 109.89228,37 48.69115,-4.1643 93.02986,-38.43145 114.10772,-82 14.69713,-17.97786 50.5917,-97.21765 56,-40 17.01909,62.37526 40.8243,122.9152 58,185 6.56667,43.0256 -2.14472,99.6467 40,127 41.95183,10.6653 43.57466,-50.1833 25,-74 -14.04315,-57.5603 -22.79349,-116.4513 -30,-175 -4.92545,-71.443 -4.16157,-143.44936 -8,-215 13.02947,-49.93776 53.50659,-86.36828 79,-130 23.84982,-37.0107 52.15479,-71.32404 81,-104 23.48648,6.45712 43.81655,18.3469 64,1 46.30479,7.94834 73.6272,-45.14271 79,-84 4.54649,-30.98698 -11.74027,-71.52325 -49,-67 -46.10756,5.59941 -67.69655,52.66847 -98,82 -36.97437,42.50321 -62.75542,93.1968 -101,135 -24.08294,21.96857 -37.7739,77.68482 -58,85 -4.81082,-81.45419 2.82692,-163.33599 -1,-245 -1.85545,-36.28596 6.59938,-75.88422 38,-98 31.44953,-25.45378 29.84739,-70.62109 63,-95 42.99115,-40.01994 70.08666,-97.08667 122,-127 21.48616,26.69754 -0.95556,63.99008 -5,94 -4.81952,31.29419 -20.52416,62.84943 -16,95 30.33458,31.64805 52.91948,-32.57676 57,-58 10.05936,-49.11337 26.15225,-99.53832 19,-150 -7.06645,-39.637847 -54.84063,-46.871808 -84,-27 -72.63702,38.519131 -102.19853,120.88884 -157,178 -16.54665,24.55799 -29.65686,41.53252 -28,1 -1.20786,-56.9513 4.38375,-113.22932 5,-170 9.98298,-19.739114 2.31075,-54.7000908 -26,-49"
+              fill="#ffffff"
+              stroke="#000000"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="20"
+            />
           </svg>
         </div>
         <header>
@@ -363,120 +672,250 @@
         </section>
 
         <div class="foot">
-          <div>© <span id="year"></span> John Bogart</div>
-          <div class="muted">
-            Vibe coded and inspired by
-            <a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation"
-              >this</a
-            >
+          <div class="foot-text">
+            <div>© <span id="year"></span> John Bogart</div>
+            <div class="muted">
+              Vibe coded and inspired by
+              <a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation"
+                >this</a
+              >
+            </div>
           </div>
+          <button
+            class="panel-toggle hero-toggle-inline"
+            id="heroToggle"
+            aria-expanded="true"
+            aria-controls="hero-card"
+          >
+            Hide Hero
+          </button>
         </div>
       </main>
     </div>
-    <div class="panel">
-      <div class="title">Fluid Controls</div>
+    <div class="control-stack">
+      <div class="panel controls-panel collapsed" id="controls-panel">
+        <div class="fluid-panel-header">
+          <div>Fluid Controls</div>
+          <span class="collapsed-title">Fluid Controls</span>
+          <button
+            class="panel-toggle"
+            id="panelToggle"
+            aria-expanded="true"
+            aria-controls="controls-panel-body"
+          >
+            Show Controls
+          </button>
+        </div>
+        <div class="panel-body" id="controls-panel-body">
+          <div class="row">
+            <label>Dye Dissipation</label
+            ><span class="val" id="dyeVal">1.00</span>
+          </div>
+          <input
+            type="range"
+            id="dye"
+            min="0.90"
+            max="1.00"
+            step="0.001"
+            value="1.0"
+          />
 
-      <div class="row">
-        <label>Dye Dissipation</label><span class="val" id="dyeVal">1.00</span>
-      </div>
-      <input
-        type="range"
-        id="dye"
-        min="0.90"
-        max="1.00"
-        step="0.001"
-        value="1.0"
-      />
+          <div class="row">
+            <label>Velocity Dissipation</label
+            ><span class="val" id="velVal">0.90</span>
+          </div>
+          <input
+            type="range"
+            id="vel"
+            min="0.90"
+            max="1.00"
+            step="0.001"
+            value="0.90"
+          />
 
-      <div class="row">
-        <label>Velocity Dissipation</label
-        ><span class="val" id="velVal">0.90</span>
-      </div>
-      <input
-        type="range"
-        id="vel"
-        min="0.90"
-        max="1.00"
-        step="0.001"
-        value="0.90"
-      />
+          <div class="row">
+            <label>Vorticity</label><span class="val" id="vortVal">0.0</span>
+          </div>
+          <input type="range" id="vort" min="0" max="60" step="1" value="0" />
 
-      <div class="row">
-        <label>Vorticity</label><span class="val" id="vortVal">0.0</span>
-      </div>
-      <input type="range" id="vort" min="0" max="60" step="1" value="0" />
+          <div class="row">
+            <label>Pressure Iterations</label
+            ><span class="val" id="pressVal">25</span>
+          </div>
+          <input type="range" id="press" min="1" max="80" step="1" value="25" />
 
-      <div class="row">
-        <label>Pressure Iterations</label
-        ><span class="val" id="pressVal">25</span>
-      </div>
-      <input type="range" id="press" min="1" max="80" step="1" value="25" />
+          <div class="row">
+            <label>Splat Radius</label
+            ><span class="val" id="radVal">0.010</span>
+          </div>
+          <input
+            type="range"
+            id="rad"
+            min="0.002"
+            max="0.05"
+            step="0.001"
+            value="0.010"
+          />
 
-      <div class="row">
-        <label>Splat Radius</label><span class="val" id="radVal">0.010</span>
-      </div>
-      <input
-        type="range"
-        id="rad"
-        min="0.002"
-        max="0.05"
-        step="0.001"
-        value="0.010"
-      />
+          <div class="row">
+            <label>Stroke Smoothness</label
+            ><span class="val" id="spaceVal">0.004</span>
+          </div>
+          <input
+            type="range"
+            id="space"
+            min="0.001"
+            max="0.02"
+            step="0.001"
+            value="0.004"
+          />
 
-      <div class="row">
-        <label>Stroke Smoothness</label
-        ><span class="val" id="spaceVal">0.004</span>
-      </div>
-      <input
-        type="range"
-        id="space"
-        min="0.001"
-        max="0.02"
-        step="0.001"
-        value="0.004"
-      />
+          <div class="row">
+            <label>Fade Time (s)</label
+            ><span class="val" id="fadeVal">1.50</span>
+          </div>
+          <input
+            type="range"
+            id="fade"
+            min="0.05"
+            max="5.0"
+            step="0.05"
+            value="1.50"
+          />
 
-      <div class="row">
-        <label>Fade Time (s)</label><span class="val" id="fadeVal">1.50</span>
-      </div>
-      <input
-        type="range"
-        id="fade"
-        min="0.05"
-        max="5.0"
-        step="0.05"
-        value="1.50"
-      />
+          <div class="row">
+            <label>Start Gray</label><span class="val" id="grayVal">0.40</span>
+          </div>
+          <input
+            type="range"
+            id="gray"
+            min="0.0"
+            max="1.0"
+            step="0.01"
+            value="0.40"
+          />
 
-      <div class="row">
-        <label>Start Gray</label><span class="val" id="grayVal">0.40</span>
-      </div>
-      <input
-        type="range"
-        id="gray"
-        min="0.0"
-        max="1.0"
-        step="0.01"
-        value="0.40"
-      />
+          <div class="row">
+            <label>Auto Splats</label><input type="checkbox" id="auto" />
+          </div>
 
-      <div class="row">
-        <label>Auto Splats</label><input type="checkbox" id="auto" />
+          <div class="btnbar">
+            <button id="resetBtn">Reset</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="invertBtn">Invert Gray</button>
+          </div>
+          <div class="hint">
+            Click & drag to inject dye + velocity. Scroll to change force. New
+            splats start gray and fade to the normal display over time.
+          </div>
+        </div>
       </div>
-
-      <div class="btnbar">
-        <button id="resetBtn">Reset</button>
-        <button id="pauseBtn">Pause</button>
-        <button id="invertBtn">Invert Gray</button>
-      </div>
-      <div class="hint">
-        Click & drag to inject dye + velocity. Scroll to change force. New
-        splats start gray and fade to the normal display over time.
+      <div class="hero-placeholder" id="heroPlaceholder">
+        <div class="hero-panel-header">
+          <span>John Bogart</span>
+          <button
+            class="panel-toggle"
+            id="heroPlaceholderToggle"
+            aria-expanded="false"
+            aria-controls="hero-card"
+          >
+            Show Hero
+          </button>
+        </div>
       </div>
     </div>
 
     <script>
+      const mobileQuery = window.matchMedia("(max-width: 768px)");
+      function updateMobileStacking() {
+        const controlStack = document.querySelector(".control-stack");
+        const heroCard = document.getElementById("hero-card");
+        const controlsPanel = document.getElementById("controls-panel");
+        if (!controlStack || !heroCard || !controlsPanel) return;
+        const heroOpen = !heroCard.classList.contains("collapsed");
+        const controlsOpen = !controlsPanel.classList.contains("collapsed");
+        const shouldStack = mobileQuery.matches && heroOpen && controlsOpen;
+        controlStack.classList.toggle("stacked-below", shouldStack);
+      }
+      (() => {
+        const hero = document.getElementById("hero-card");
+        const heroToggle = document.getElementById("heroToggle");
+        const heroPlaceholder = document.getElementById("heroPlaceholder");
+        const heroPlaceholderToggle = document.getElementById(
+          "heroPlaceholderToggle",
+        );
+
+        function syncPlaceholder(open) {
+          if (heroPlaceholder) {
+            heroPlaceholder.style.display = open ? "none" : "flex";
+          }
+          if (heroPlaceholderToggle) {
+            heroPlaceholderToggle.setAttribute(
+              "aria-expanded",
+              open ? "false" : "true",
+            );
+          }
+        }
+
+        function setHeroOpen(open) {
+          if (!hero || !heroToggle) return;
+          hero.classList.toggle("collapsed", !open);
+          heroToggle.setAttribute("aria-expanded", open ? "true" : "false");
+          heroToggle.textContent = open ? "Hide Hero" : "Show Hero";
+          syncPlaceholder(open);
+          updateMobileStacking();
+        }
+
+        function handleHeroBreakpoint() {
+          // Keep hero visible by default on desktop; follow last state on mobile.
+          if (!hero || !heroToggle) return;
+          if (!mobileQuery.matches && hero.classList.contains("collapsed")) {
+            setHeroOpen(true);
+          }
+          updateMobileStacking();
+        }
+
+        if (hero && heroToggle) {
+          heroToggle.addEventListener("click", () => {
+            const open = !hero.classList.contains("collapsed");
+            setHeroOpen(!open);
+          });
+          if (heroPlaceholderToggle) {
+            heroPlaceholderToggle.addEventListener("click", () => {
+              setHeroOpen(true);
+            });
+          }
+          if (mobileQuery.addEventListener) {
+            mobileQuery.addEventListener("change", handleHeroBreakpoint);
+          } else if (mobileQuery.addListener) {
+            mobileQuery.addListener(handleHeroBreakpoint);
+          }
+          syncPlaceholder(true);
+          handleHeroBreakpoint();
+          updateMobileStacking();
+        }
+      })();
+      (() => {
+        const panel = document.getElementById("controls-panel");
+        const toggle = document.getElementById("panelToggle");
+
+        function setOpen(open) {
+          if (!panel || !toggle) return;
+          panel.classList.toggle("collapsed", !open);
+          toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          toggle.textContent = open ? "Hide Controls" : "Show Controls";
+          updateMobileStacking();
+        }
+
+        if (panel && toggle) {
+          toggle.addEventListener("click", () => {
+            const open = !panel.classList.contains("collapsed");
+            setOpen(!open);
+          });
+          setOpen(false);
+          updateMobileStacking();
+        }
+      })();
       (() => {
         const canvas = document.getElementById("c");
         const gl = canvas.getContext("webgl2", {
@@ -656,12 +1095,25 @@
         };
 
         const $ = (sel) => document.querySelector(sel);
+        const updateRangeFill = (el) => {
+          if (!el) return;
+          const min = Number(el.min) || 0;
+          const max = Number(el.max);
+          const delta =
+            Number.isFinite(max - min) && max !== min ? max - min : 1;
+          const percent = Math.min(
+            Math.max(((Number(el.value) - min) / delta) * 100, 0),
+            100,
+          );
+          el.style.setProperty("--range-percent", `${percent}%`);
+        };
         function linkRange(id, prop, fmt = (v) => v.toString()) {
           const el = $("#" + id),
             v = $("#" + id + "Val");
           const update = () => {
             ui[prop] = el.type === "range" ? Number(el.value) : !!el.checked;
             if (v) v.textContent = fmt(ui[prop]);
+            updateRangeFill(el);
           };
           update();
           el.addEventListener("input", update);
