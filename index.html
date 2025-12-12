@@ -368,6 +368,33 @@
       .row input[type="checkbox"] {
         transform: translateY(1px);
       }
+      .row.color-row {
+        grid-template-columns: 1fr auto;
+      }
+      .color-input {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .color-input input[type="color"] {
+        appearance: none;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        width: 40px;
+        height: 26px;
+        padding: 0;
+        background: #111;
+        cursor: pointer;
+      }
+      .color-input input[type="color"]::-webkit-color-swatch {
+        border: none;
+        border-radius: 6px;
+      }
+      .color-input input[type="color"]::-moz-color-swatch {
+        border: none;
+        border-radius: 6px;
+      }
       .row .val {
         font:
           100 12px/1.2 "Geist Mono",
@@ -750,6 +777,14 @@
             value="1.0"
           />
 
+          <div class="row color-row">
+            <label for="dyeColor">Dye Color</label>
+            <div class="color-input">
+              <input type="color" id="dyeColor" value="#58d89d" />
+              <span class="val" id="dyeColorVal">#58D89D</span>
+            </div>
+          </div>
+
           <div class="row">
             <label>Velocity Dissipation</label
             ><span class="val" id="velVal">0.90</span>
@@ -1064,8 +1099,7 @@
         }
 
         // ---------- Shaders ----------
-        const fsDisplay = `#version 300 es\nprecision highp float;\n  out vec4 frag;\n  in vec2 vUv;\n  uniform sampler2D uDye;\n  uniform sampler2D uAge;\n  uniform bool uInvert;\n  uniform float uFadeTime;\n  uniform float uStartGray;\n  void main(){\n    vec3 col = texture(uDye, vUv).rgb;\n    float y = dot(col, vec3(0.2126, 0.7152, 0.0722));\n    float age = texture(uAge, vUv).r;\n    float t = clamp(age / max(uFadeTime, 1e-4), 0.0, 1.0);\n    // Ease the fade so gray persists longer (slower start)
-    t = pow(t, 2.5);\n    float g = mix(uStartGray, y, t);\n    if (uInvert) g = 1.0 - g;\n    frag = vec4(vec3(g), 1.0);\n  }`;
+        const fsDisplay = `#version 300 es\nprecision highp float;\n  out vec4 frag;\n  in vec2 vUv;\n  uniform sampler2D uDye;\n  uniform sampler2D uAge;\n  uniform bool uInvert;\n  uniform float uFadeTime;\n  uniform float uStartGray;\n  void main(){\n    vec3 col = texture(uDye, vUv).rgb;\n    float age = texture(uAge, vUv).r;\n    float t = clamp(age / max(uFadeTime, 1e-4), 0.0, 1.0);\n    // Ease the fade so gray persists longer (slower start)\n    t = pow(t, 2.5);\n    vec3 base = mix(vec3(uStartGray), col, t);\n    if (uInvert) base = vec3(1.0) - base;\n    frag = vec4(base, 1.0);\n  }`;
 
         const fsSplat = `#version 300 es\nprecision highp float;\n  out vec4 frag;\n  in vec2 vUv;\n  uniform sampler2D uTarget;\n  uniform vec2 uPoint;\n  uniform float uRadius;\n  uniform vec3 uColor;\n  void main(){\n    vec2 p = vUv - uPoint;\n    float r = uRadius;\n    float falloff = exp(-dot(p,p) / (r*r));\n    vec3 base = texture(uTarget, vUv).rgb;\n    frag = vec4(base + uColor * falloff, 1.0);\n  }`;
 
@@ -1127,9 +1161,26 @@
           forceMul: 9000,
           fadeTime: 1.5,
           startGray: 0.4,
+          dyeColor: [0.345, 0.847, 0.616],
         };
 
         const $ = (sel) => document.querySelector(sel);
+        const hexToRgb = (hex) => {
+          const m = /^#?([a-fA-F0-9]{6})$/.exec((hex || "").trim());
+          if (!m) return null;
+          return [
+            parseInt(m[1].slice(0, 2), 16) / 255,
+            parseInt(m[1].slice(2, 4), 16) / 255,
+            parseInt(m[1].slice(4, 6), 16) / 255,
+          ];
+        };
+        const rgbToHex = (rgb) => {
+          const toHex = (v) =>
+            Math.max(0, Math.min(255, Math.round(v * 255)))
+              .toString(16)
+              .padStart(2, "0");
+          return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
+        };
         const updateRangeFill = (el) => {
           if (!el) return;
           const min = Number(el.min) || 0;
@@ -1162,6 +1213,24 @@
         linkRange("space", "strokeSpacing", (v) => Number(v).toFixed(3));
         linkRange("fade", "fadeTime", (v) => Number(v).toFixed(2));
         linkRange("gray", "startGray", (v) => Number(v).toFixed(2));
+        const dyeInput = $("#dyeColor");
+        const dyeVal = $("#dyeColorVal");
+        const defaultDyeHex = "#58d89d";
+        function setDyeColor(hex) {
+          const rgb = hexToRgb(hex);
+          if (!rgb) return;
+          ui.dyeColor = rgb;
+          const normalizedHex = rgbToHex(rgb);
+          if (dyeInput) dyeInput.value = normalizedHex;
+          if (dyeVal) dyeVal.textContent = normalizedHex.toUpperCase();
+        }
+        if (dyeInput) {
+          dyeInput.addEventListener("input", (e) => setDyeColor(e.target.value));
+          setDyeColor(dyeInput.value || defaultDyeHex);
+        } else {
+          const fallback = hexToRgb(defaultDyeHex);
+          if (fallback) ui.dyeColor = fallback;
+        }
 
         const autoEl = document.getElementById("auto");
         autoEl.checked = ui.auto;
@@ -1407,8 +1476,9 @@
           if (ui.auto && Math.random() < 0.2) {
             const p = [Math.random(), Math.random()];
             const a = Math.random() * 6.2831;
+            const c = ui.dyeColor;
             splatVel(p[0], p[1], Math.cos(a) * 0.2, Math.sin(a) * 0.2);
-            splatDye(p[0], p[1], 1.0, 1.0, 1.0);
+            splatDye(p[0], p[1], c[0], c[1], c[2]);
             splatAge(p[0], p[1]);
           }
 
@@ -1423,12 +1493,13 @@
             );
             const fxs = (dx * ui.forceMul) / steps;
             const fys = (dy * ui.forceMul) / steps;
+            const c = ui.dyeColor;
             for (let i = 1; i <= steps; i++) {
               const t = i / steps;
               const x = pointer.px + dx * t;
               const y = pointer.py + dy * t;
               splatVel(x, y, fxs, fys);
-              splatDye(x, y, 1.0, 1.0, 1.0);
+              splatDye(x, y, c[0], c[1], c[2]);
               splatAge(x, y);
             }
             pointer.px = pointer.x;
@@ -1657,8 +1728,9 @@
               const end = Math.min(samples.length, i + target.maxPerFrame);
               for (; i < end; i++) {
                 const s = samples[i];
+                const c = ui.dyeColor;
                 splatVel(s.u, s.v, s.fx, s.fy);
-                splatDye(s.u, s.v, 1.0, 1.0, 1.0);
+                splatDye(s.u, s.v, c[0], c[1], c[2]);
                 splatAge(s.u, s.v);
               }
               if (i < samples.length) {
